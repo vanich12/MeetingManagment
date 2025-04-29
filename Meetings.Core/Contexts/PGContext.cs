@@ -12,7 +12,7 @@ namespace Meetings.Core.Contexts
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseNpgsql($"Host=localhost;Port=5432;Database=MeetingsAppDB;Username=postgres;Password=123;");
+            optionsBuilder.UseSqlite($"Data Source=Data/meetings.db");
 #if DEBUG
             optionsBuilder.LogTo(Console.WriteLine, LogLevel.Information);
 #endif
