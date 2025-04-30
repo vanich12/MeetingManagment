@@ -38,6 +38,9 @@ namespace Meetings.Application.Services
             if (meeting.Reminder > meeting.StartTime)
                 throw new Exception("Время напоминания о встрече не может быть раньше встречи");
 
+            if (meeting.Reminder < DateTime.Now.ToUtcSafe())
+                throw new Exception("Время напоминания о встрече не может быть назначено на прошедшее время");
+
             Expression<Func<Meeting, bool>> overlapFilter = existingMeeting =>
                 meeting.StartTime < existingMeeting.EndTime && meeting.EndTime > existingMeeting.StartTime;
 

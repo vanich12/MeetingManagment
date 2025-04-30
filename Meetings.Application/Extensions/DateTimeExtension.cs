@@ -5,6 +5,9 @@
         private const string DefaultDisplayFormat = "yyyy-MM-dd HH:mm"; 
         private static readonly TimeZoneInfo _targetDisplayTimeZone;
 
+        /// <summary>
+        /// Настройка часового пояса
+        /// </summary>
         static DateTimeExtensions()
         {
             TimeSpan targetOffset = TimeSpan.FromHours(4);

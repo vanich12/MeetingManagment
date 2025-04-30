@@ -12,6 +12,7 @@ using Meetings.Application.Services.Interfaces;
 using Meetings.Core.Models;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Serilog;
+using Index = Microsoft.EntityFrameworkCore.Metadata.Internal.Index;
 
 namespace MeetingManagment
 {
@@ -22,15 +23,31 @@ namespace MeetingManagment
             Console.WriteLine("Приложение запущено");
             bool keepRunning = true;
 
+            // по хорошему нужно воспользоваться планировщиком, но SqlLite будет работать с ним плохоЮ поэтому сделал так
+          _= Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await meetingService.CheckReminders();
+                    await Task.Delay(20000); // Ждем 20 секунд перед каждой проверкой уведомлений
+                }
+            });
+
+
             while (keepRunning)
             {
                 DisplayMenu();
                 Console.Write("Введите ваш выбор: ");
                 string? choice = Console.ReadLine();
                 Console.WriteLine(); // Пустая строка для разделения
-
-                // Обрабатываем выбор асинхронно и решаем, продолжать ли цикл
-                keepRunning = await HandleUserChoiceAsync(choice);
+                try
+                {
+                    keepRunning = await HandleUserChoiceAsync(choice);
+                }
+                catch (Exception e)
+                {
+                    logger.Warning($"Некорректный ввод {e.Message}");
+                }
 
                 if (keepRunning)
                 {
@@ -90,24 +107,40 @@ namespace MeetingManagment
 
         private async Task AddMeetingAsync()
         {
-            DateTime startTime = GetDateTimeValue("Введите время начала встречи:");
-            DateTime endTime = GetDateTimeValue("Введите примерное время окончания встречи:");
-            Meeting meeting = new Meeting() { StartTime = startTime, EndTime = endTime };
-            Console.WriteLine("Установить уведомление о встрече?");
-            Console.WriteLine("1. Да");
-            Console.WriteLine("2. Нет");
-            var choice = Console.ReadLine();
-
-            switch (choice)
+            try
             {
-                case "1":
-                    await SetReminderTime(meeting, "Введите время для напоминания");
-                    break;
-                case "2":
-                    break;
-                default:
-                    Console.WriteLine("Выберите вариант 1 либо 2");
-                    return;
+                DateTime startTime = GetDateTimeValue("Введите время начала встречи:");
+                DateTime endTime = GetDateTimeValue("Введите примерное время окончания встречи:");
+                Console.WriteLine("Введите описание встречи");
+                string description = Console.ReadLine();
+                Meeting meeting = new Meeting() { StartTime = startTime, EndTime = endTime, Description = description };
+                Console.WriteLine("Установить уведомление о встрече?");
+                Console.WriteLine("1. Да");
+                Console.WriteLine("2. Нет");
+                var choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        await SetReminderTime(meeting, "Введите время для напоминания");
+                        break;
+                    case "2":
+                        break;
+                    default:
+                        Console.WriteLine("Выберите вариант 1 либо 2");
+                        return;
+                }
+
+                await meetingService.CreateAsync(meeting);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("Неверный формат ввода");
+                logger.Warning($"Ошибка : {ex.Message}");
+            }
+            catch (Exception e)
+            {
+                logger.Warning($"Ошибка : {e.Message}");
             }
         }
 
@@ -119,10 +152,18 @@ namespace MeetingManagment
                 meet.Reminder = reminderTime;
                 await meetingService.CreateAsync(meet);
             }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("Неверный формат ввода");
+                logger.Warning($"Ошибка : {ex.Message}");
+            }
+            catch (ArgumentException ex)
+            {
+                logger.Error($"Передан не верный аргумент: {ex.Message}.");
+            }
             catch (Exception e)
             {
-                Console.WriteLine(e);
-                logger.Error(e, $"{e.Message}");
+                logger.Error($"Не удалось создать встерчу с ошибкой: {e.Message}.");
             }
         }
 
@@ -207,31 +248,42 @@ namespace MeetingManagment
                     }
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("Неверный формат ввода");
+                logger.Warning($"Ошибка : {ex.Message}");
+            }
             catch (ArgumentException ex)
             {
-                Console.WriteLine(ex);
-                logger.Error("Meeting with ID {MeetingId} not found (returned null).", meetingId);
+                logger.Error($"Передан не верный аргумент: {ex.Message}.");
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
-                logger.Warning("Meeting with ID {MeetingId} not found (returned null).", meetingId);
+                logger.Warning("Встреча с ID {MeetingId} не найдена (returned null).", meetingId);
             }
         }
 
         private async Task DeleteMeetingAsync()
         {
-            await ListAllMeetingsAsync();
-            Console.Write("Введите номер встречи которую хотите отредактировать: ");
-            int index = int.Parse(Console.ReadLine());
-            var removeItem = await meetingService.GetByIdAsync(index);
-            if (removeItem is null)
+            try
             {
-                Console.WriteLine("Такой встречи нет в базе");
-                return;
-            }
+                await ListAllMeetingsAsync();
 
-            await meetingService.RemoveAsync(removeItem);
+                Console.Write("Введите номер встречи которую хотите удалить: ");
+                int index = int.Parse(Console.ReadLine());
+                var removeItem = await meetingService.GetByIdAsync(index);
+
+                await meetingService.RemoveAsync(removeItem);
+            }
+            catch (KeyNotFoundException e)
+            {
+                Console.WriteLine("Встречи с таким номером не найдено");
+                logger.Warning($"Ошибка : {e.Message}");
+            }
+            catch (Exception e)
+            {
+                logger.Warning($"Ошибка : {e.Message}");
+            }
         }
 
         private async Task ListAllMeetingsAsync()
@@ -241,9 +293,11 @@ namespace MeetingManagment
             foreach (var meeting in meetings)
             {
                 Console.WriteLine(
-                    $"{meeting.Id}: Встреча с {meeting.StartTime.FormatForDisplay()} по {meeting.EndTime.FormatForDisplay()}");
+                    $"{meeting.Id}: Встреча с {meeting.StartTime.FormatForDisplay()} по {meeting.EndTime.FormatForDisplay()} с описанием: {meeting.Description}");
             }
 
+            if (meetings.Count() == 0)
+                Console.WriteLine("Встреч не найдено");
             Console.WriteLine();
         }
 
