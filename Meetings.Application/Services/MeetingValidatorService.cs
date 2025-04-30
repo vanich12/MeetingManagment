@@ -33,7 +33,7 @@ namespace Meetings.Application.Services
                 throw new Exception("Встреча не может быть назначена на время, которое прошло");
 
             if (meeting.StartTime > meeting.EndTime)
-                throw new Exception("Окончанеи встречи не может быть раньше начала");
+                throw new Exception("Окончание встречи не может быть раньше начала");
 
             if (meeting.Reminder > meeting.StartTime)
                 throw new Exception("Время напоминания о встрече не может быть раньше встречи");
@@ -44,13 +44,12 @@ namespace Meetings.Application.Services
             Expression<Func<Meeting, bool>> overlapFilter = existingMeeting =>
                 meeting.StartTime < existingMeeting.EndTime && meeting.EndTime > existingMeeting.StartTime;
 
-            if (!isUpdate)
-            {
-                var overlaps = await repository.AnyAsync(overlapFilter);
 
-                if (overlaps)
-                    throw new Exception($"Встреча уже назначена на период: {meeting.StartTime} - {meeting.EndTime}.");
-            }
+            var overlaps = await repository.AnyAsync(overlapFilter);
+
+            if (overlaps)
+                throw new Exception(
+                    $"Встреча уже назначена на период: {meeting.StartTime.FormatForDisplay()} - {meeting.EndTime.FormatForDisplay()}.");
         }
     }
 }

@@ -140,7 +140,7 @@ namespace MeetingManagment
             }
             catch (Exception e)
             {
-                Console.WriteLine("Окончание встречи неможет быть раньше начала");
+                Console.WriteLine($"{e.Message}");
                 logger.Warning($"Ошибка : {e.Message}");
             }
         }
@@ -151,7 +151,6 @@ namespace MeetingManagment
             {
                 var reminderTime = GetDateTimeValue(prompt).ToUtcSafe();
                 meet.Reminder = reminderTime;
-                await meetingService.CreateAsync(meet);
             }
             catch (InvalidOperationException ex)
             {
@@ -259,10 +258,12 @@ namespace MeetingManagment
             }
             catch (ArgumentException ex)
             {
+                Console.WriteLine(ex.Message);
                 logger.Error($"Передан не верный аргумент: {ex.Message}.");
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.Message);
                 logger.Warning("Встреча с ID {MeetingId} не найдена (returned null).", meetingId);
             }
         }
@@ -289,6 +290,7 @@ namespace MeetingManagment
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.Message);
                 logger.Warning($"Ошибка : {e.Message}");
             }
         }
@@ -348,7 +350,7 @@ namespace MeetingManagment
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Console.WriteLine(e.Message);
                 logger.Warning(" Встреч на данную дату не найдено.");
                 return null;
             }
