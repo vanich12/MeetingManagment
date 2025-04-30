@@ -11,10 +11,11 @@ using Meetings.Application.Extensions;
 using Meetings.Application.Services.Interfaces;
 using Meetings.Core.Models;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Serilog;
 
 namespace MeetingManagment
 {
-    public class MeetingHandler(IMeetingService meetingService)
+    public class MeetingHandler(IMeetingService meetingService, ILogger logger)
     {
         public async Task RunAsync()
         {
@@ -72,7 +73,7 @@ namespace MeetingManagment
                     await ListAllMeetingsAsync();
                     break;
                 case "5":
-                    await ShowMeetingByIdAsync();
+                    await ShowMeetingByDateAsync();
                     break;
                 case "6":
                     await ExportMeetingsAsync();
@@ -100,7 +101,7 @@ namespace MeetingManagment
             switch (choice)
             {
                 case "1":
-                    SetReminderTime(meeting, "Введите время для напоминания");
+                    await SetReminderTime(meeting, "Введите время для напоминания");
                     break;
                 case "2":
                     break;
@@ -110,7 +111,7 @@ namespace MeetingManagment
             }
         }
 
-        private async void SetReminderTime(Meeting? meet, string prompt)
+        private async Task SetReminderTime(Meeting? meet, string prompt)
         {
             try
             {
@@ -121,25 +122,45 @@ namespace MeetingManagment
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                throw;
+                logger.Error(e, $"{e.Message}");
             }
         }
 
         private async Task UpdateMeetingAsync()
         {
             await ListAllMeetingsAsync();
-            Console.Write("Введите номер встречи которую хотите отредактировать: ");
-            // огранничить чтоб не вышло за пределы массива
-            int index = int.Parse(Console.ReadLine());
-            Meeting currentMeeting;
-            try
+            bool isCorrectIndex = true;
+            Meeting currentMeeting = null;
+            int meetingId = -1;
+
+            while (currentMeeting == null)
             {
-                currentMeeting = await meetingService.GetByIdAsync(index);
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("Не найдено встречи под таким номером");
-                throw;
+                Console.Write("Введите ID встречи, которую хотите отредактировать: ");
+                string? inputId = Console.ReadLine();
+
+                if (int.TryParse(inputId, out meetingId))
+                {
+                    try
+                    {
+                        currentMeeting = await meetingService.GetByIdAsync(meetingId);
+                        if (currentMeeting == null)
+                        {
+                            Console.WriteLine($"Встреча с ID {meetingId} не найдена.");
+                            logger.Warning("Meeting with ID {MeetingId} not found (returned null).", meetingId);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Ошибка при поиске встречи с ID {meetingId}.");
+                        logger.Error(e, "Ошибка в при выборке по идентификатору {MeetingId}: {ErrorMessage}", meetingId,
+                            e.Message);
+                        currentMeeting = null;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Некорректный ввод ID. Пожалуйста, введите целое число.");
+                }
             }
 
             bool isOpenForm = true;
@@ -151,38 +172,50 @@ namespace MeetingManagment
             Console.WriteLine("4. Содержание встречи");
             Console.WriteLine("5. Сохранить");
             Console.WriteLine("6. Отменить");
-
-            while (isOpenForm)
+            try
             {
-                Console.WriteLine("Выберите, что вы хотите изменить:");
-                string choice = Console.ReadLine();
-                switch (choice)
+                while (isOpenForm)
                 {
-                    case "1":
-                        var newTime = GetDateTimeValue("Введите новое время НАЧАЛА встречи:");
-                        currentMeeting.StartTime = newTime;
-                        break;
-                    case "2":
-                        var endTime = GetDateTimeValue("Введите новое время ОКОНЧАНИЯ встречи:");
-                        currentMeeting.EndTime = endTime;
-                        break;
-                    case "3":
-                        var remindTime = GetDateTimeValue("Введите новое время для напоминания:");
-                        currentMeeting.Reminder = remindTime;
-                        break;
-                    case "4":
-                        Console.WriteLine("Введите новое содежрание встречи");
-                        var description = Console.ReadLine();
-                        currentMeeting.Description = description;
-                        break;
-                    case "5":
-                        await meetingService.UpdateAsync(index, currentMeeting);
-                        isOpenForm = false;
-                        break;
-                    case "6":
-                        isOpenForm = false;
-                        break;
+                    Console.WriteLine("Выберите, что вы хотите изменить:");
+                    string choice = Console.ReadLine();
+                    switch (choice)
+                    {
+                        case "1":
+                            var newTime = GetDateTimeValue("Введите новое время НАЧАЛА встречи:");
+                            currentMeeting.StartTime = newTime;
+                            break;
+                        case "2":
+                            var endTime = GetDateTimeValue("Введите новое время ОКОНЧАНИЯ встречи:");
+                            currentMeeting.EndTime = endTime;
+                            break;
+                        case "3":
+                            var remindTime = GetDateTimeValue("Введите новое время для напоминания:");
+                            currentMeeting.Reminder = remindTime;
+                            break;
+                        case "4":
+                            Console.WriteLine("Введите новое содежрание встречи");
+                            var description = Console.ReadLine();
+                            currentMeeting.Description = description;
+                            break;
+                        case "5":
+                            await meetingService.UpdateAsync(meetingId, currentMeeting);
+                            isOpenForm = false;
+                            break;
+                        case "6":
+                            isOpenForm = false;
+                            break;
+                    }
                 }
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine(ex);
+                logger.Error("Meeting with ID {MeetingId} not found (returned null).", meetingId);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                logger.Warning("Meeting with ID {MeetingId} not found (returned null).", meetingId);
             }
         }
 
@@ -214,8 +247,50 @@ namespace MeetingManagment
             Console.WriteLine();
         }
 
-        private async Task ShowMeetingByIdAsync()
+        private async Task ShowMeetingByDateAsync()
         {
+            DateTime targetLocalDate;
+            Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
+            string? dateInput = Console.ReadLine();
+            if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
+                    out targetLocalDate))
+            {
+                Console.WriteLine("Неверный формат даты. Пожалуйста, используйте формат 'гггг-ММ-дд'.");
+                return;
+            }
+
+            var filteredMeetings = await GetMeetingsByDateOrDefault(targetLocalDate);
+
+            foreach (var meeting in filteredMeetings)
+            {
+                Console.WriteLine(
+                    $"{meeting.Id}: Встреча с {meeting.StartTime.FormatForDisplay()} по {meeting.EndTime.FormatForDisplay()}");
+            }
+        }
+
+        private async Task<IEnumerable<Meeting>?> GetMeetingsByDateOrDefault(DateTime targetLocalDate)
+        {
+            DateTime localStartOfDay = targetLocalDate.Date;
+            DateTime localEndOfDay = localStartOfDay.AddDays(1);
+            DateTime utcStartOfDay = localStartOfDay.ToUtcSafe();
+            DateTime utcEndOfDay = localEndOfDay.ToUtcSafe();
+
+            Expression<Func<Meeting, bool>> expression = meeting =>
+                meeting.StartTime >= utcStartOfDay && meeting.StartTime < utcEndOfDay;
+
+            IEnumerable<Meeting> filteredMeetings;
+            try
+            {
+                filteredMeetings = await meetingService.GetAsync(expression);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                logger.Warning(" Встреч на данную дату не найдено.");
+                return null;
+            }
+
+            return filteredMeetings;
         }
 
         private async Task ExportMeetingsAsync()
@@ -224,35 +299,17 @@ namespace MeetingManagment
 
             // 1. Получаем целевую ЛОКАЛЬНУЮ дату от пользователя
             DateTime targetLocalDate;
-            Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд): "); // Подсказка формата даты
+            Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
             string? dateInput = Console.ReadLine();
 
-            if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out targetLocalDate))
+            if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
+                    out targetLocalDate))
             {
                 Console.WriteLine("Неверный формат даты. Пожалуйста, используйте формат 'гггг-ММ-дд'.");
                 return;
             }
 
-            DateTime localStartOfDay = targetLocalDate.Date; 
-      
-            DateTime localEndOfDay = localStartOfDay.AddDays(1);
-
-      
-            DateTime utcStartOfDay = localStartOfDay.ToUtcSafe();
-            DateTime utcEndOfDay = localEndOfDay.ToUtcSafe();
-
-            Expression<Func<Meeting, bool>> expression = meeting =>
-                meeting.StartTime >= utcStartOfDay && meeting.StartTime < utcEndOfDay;
-            IEnumerable<Meeting> filteredMeetings;
-            try
-            {
-                filteredMeetings = await meetingService.GetAsync(expression);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("В выбранную дату не существует встреч");
-                throw;
-            }
+            var filteredMeetings = await GetMeetingsByDateOrDefault(targetLocalDate);
 
             Console.WriteLine("Введите название файла");
             string fileName = Console.ReadLine();
