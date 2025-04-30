@@ -24,7 +24,7 @@ namespace MeetingManagment
             bool keepRunning = true;
 
             // по хорошему нужно воспользоваться планировщиком, но SqlLite будет работать с ним плохоЮ поэтому сделал так
-          _= Task.Run(async () =>
+            _ = Task.Run(async () =>
             {
                 while (true)
                 {
@@ -38,7 +38,7 @@ namespace MeetingManagment
             {
                 DisplayMenu();
                 Console.Write("Введите ваш выбор: ");
-                string? choice = Console.ReadLine();
+                string? choice = Console.ReadLine().Trim();
                 Console.WriteLine(); // Пустая строка для разделения
                 try
                 {
@@ -112,12 +112,12 @@ namespace MeetingManagment
                 DateTime startTime = GetDateTimeValue("Введите время начала встречи:");
                 DateTime endTime = GetDateTimeValue("Введите примерное время окончания встречи:");
                 Console.WriteLine("Введите описание встречи");
-                string description = Console.ReadLine();
+                string description = Console.ReadLine().Trim();
                 Meeting meeting = new Meeting() { StartTime = startTime, EndTime = endTime, Description = description };
                 Console.WriteLine("Установить уведомление о встрече?");
                 Console.WriteLine("1. Да");
                 Console.WriteLine("2. Нет");
-                var choice = Console.ReadLine();
+                var choice = Console.ReadLine().Trim();
 
                 switch (choice)
                 {
@@ -140,6 +140,7 @@ namespace MeetingManagment
             }
             catch (Exception e)
             {
+                Console.WriteLine("Окончание встречи неможет быть раньше начала");
                 logger.Warning($"Ошибка : {e.Message}");
             }
         }
@@ -169,7 +170,10 @@ namespace MeetingManagment
 
         private async Task UpdateMeetingAsync()
         {
-            await ListAllMeetingsAsync();
+            var meetings = await ListAllMeetingsAsync();
+            if (meetings.Count() == 0)
+                return;
+
             bool isCorrectIndex = true;
             Meeting currentMeeting = null;
             int meetingId = -1;
@@ -177,7 +181,7 @@ namespace MeetingManagment
             while (currentMeeting == null)
             {
                 Console.Write("Введите ID встречи, которую хотите отредактировать: ");
-                string? inputId = Console.ReadLine();
+                string? inputId = Console.ReadLine().Trim();
 
                 if (int.TryParse(inputId, out meetingId))
                 {
@@ -218,7 +222,7 @@ namespace MeetingManagment
                 while (isOpenForm)
                 {
                     Console.WriteLine("Выберите, что вы хотите изменить:");
-                    string choice = Console.ReadLine();
+                    string choice = Console.ReadLine().Trim();
                     switch (choice)
                     {
                         case "1":
@@ -235,7 +239,7 @@ namespace MeetingManagment
                             break;
                         case "4":
                             Console.WriteLine("Введите новое содежрание встречи");
-                            var description = Console.ReadLine();
+                            var description = Console.ReadLine().Trim();
                             currentMeeting.Description = description;
                             break;
                         case "5":
@@ -267,10 +271,13 @@ namespace MeetingManagment
         {
             try
             {
-                await ListAllMeetingsAsync();
+                var meetings = await ListAllMeetingsAsync();
+
+                if (meetings.Count() == 0)
+                    return;
 
                 Console.Write("Введите номер встречи которую хотите удалить: ");
-                int index = int.Parse(Console.ReadLine());
+                int index = int.Parse(Console.ReadLine().Trim());
                 var removeItem = await meetingService.GetByIdAsync(index);
 
                 await meetingService.RemoveAsync(removeItem);
@@ -286,7 +293,7 @@ namespace MeetingManagment
             }
         }
 
-        private async Task ListAllMeetingsAsync()
+        private async Task<IEnumerable<Meeting>?> ListAllMeetingsAsync()
         {
             //DateTime date = GetDateTimeValue("На какую дату вы хотите посмотреть встречи?:");
             var meetings = await meetingService.GetAllAsync();
@@ -299,13 +306,15 @@ namespace MeetingManagment
             if (meetings.Count() == 0)
                 Console.WriteLine("Встреч не найдено");
             Console.WriteLine();
+
+            return meetings;
         }
 
         private async Task ShowMeetingByDateAsync()
         {
             DateTime targetLocalDate;
             Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
-            string? dateInput = Console.ReadLine();
+            string? dateInput = Console.ReadLine().Trim();
             if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
                     out targetLocalDate))
             {
@@ -354,7 +363,7 @@ namespace MeetingManagment
             // 1. Получаем целевую ЛОКАЛЬНУЮ дату от пользователя
             DateTime targetLocalDate;
             Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
-            string? dateInput = Console.ReadLine();
+            string? dateInput = Console.ReadLine().Trim();
 
             if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
                     out targetLocalDate))
@@ -364,9 +373,14 @@ namespace MeetingManagment
             }
 
             var filteredMeetings = await GetMeetingsByDateOrDefault(targetLocalDate);
+            if (filteredMeetings.Count() == 0)
+            {
+                Console.WriteLine("Встречь не найдено");
+                return;
+            }
 
             Console.WriteLine("Введите название файла");
-            string fileName = Console.ReadLine();
+            string fileName = Console.ReadLine().Trim();
             WorkWithFiles.ExportMeetingsToTextFile(filteredMeetings, fileName);
             Console.WriteLine("Расписание экспортировано.");
         }
@@ -374,7 +388,7 @@ namespace MeetingManagment
         private DateTime GetDateTimeValue(string prompt, bool fileExport = false)
         {
             Console.Write(prompt);
-            if (DateTime.TryParse(Console.ReadLine(), out DateTime newDateTime))
+            if (DateTime.TryParse(Console.ReadLine().Trim(), out DateTime newDateTime))
             {
                 return fileExport ? newDateTime : newDateTime.ToUtcSafe();
             }
