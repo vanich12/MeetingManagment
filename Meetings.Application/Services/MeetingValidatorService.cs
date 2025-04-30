@@ -44,6 +44,13 @@ namespace Meetings.Application.Services
             Expression<Func<Meeting, bool>> overlapFilter = existingMeeting =>
                 meeting.StartTime < existingMeeting.EndTime && meeting.EndTime > existingMeeting.StartTime;
 
+            if (isUpdate)
+            {
+                overlapFilter = existingMeeting =>
+                    existingMeeting.Id != meeting.Id &&
+                    meeting.StartTime < existingMeeting.EndTime &&
+                    meeting.EndTime > existingMeeting.StartTime;
+            }
 
             var overlaps = await repository.AnyAsync(overlapFilter);
 
