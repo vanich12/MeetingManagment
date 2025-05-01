@@ -1,0 +1,13 @@
+services:
+  meetingmanagment:
+    image: ${DOCKER_REGISTRY-}meetingmanagment
+    build:
+      context: .
+      dockerfile: MeetingManagment/Dockerfile
+    volumes:
+      - sqlite_data:/app/Data
+volumes:
+  sqlite_data:
+
+
+

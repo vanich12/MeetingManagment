@@ -8,8 +8,16 @@ using Meetings.Application.Extensions;
 
 namespace MeetingManagment.Utilities
 {
+    /// <summary>
+    /// Для работы с файлами
+    /// </summary>
     public static class WorkWithFiles
     {
+        /// <summary>
+        /// Экспорт файла в директорию
+        /// </summary>
+        /// <param name="meetingsOnDate"></param>
+        /// <param name="fileName"> директория для экспорта</param>
         public static void ExportMeetingsToTextFile(IEnumerable<Meeting> meetingsOnDate, string fileName)
         {
             string directoryPath = AppDomain.CurrentDomain.BaseDirectory;

@@ -44,7 +44,10 @@ namespace Meetings.Application.Services
             return await base.UpdateAsync(id, meeting);
         }
 
-
+        /// <summary>
+        /// Проверка уведомления
+        /// </summary>
+        /// <returns></returns>
         public async Task CheckReminders()
         {
             Expression<Func<Meeting, bool>> expression = meeting =>

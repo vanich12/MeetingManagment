@@ -12,9 +12,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Meetings.Infrastructure.Storages
 {
+    /// <summary>
+    /// Репозиторий встреч
+    /// </summary>
+    /// <param name="context"></param>
     public class MeetingRepository(MeetingAppContext context) : GenericRepository<Meeting>(context), IMeetingRepository
     {
         private readonly MeetingAppContext _ctx = context;
+        /// <summary>
+        /// Получить встречи с фильтром
+        /// </summary>
+        /// <param name="filters">фильтры</param>
+        /// <returns></returns>
         public async Task<IEnumerable<Meeting>> GetMeetingsByParams(MeetingFilterDTO filters)
         {
             var query = this._ctx.Meetings.ApplyFilters(filters);

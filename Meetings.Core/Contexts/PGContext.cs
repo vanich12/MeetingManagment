@@ -13,13 +13,11 @@ namespace Meetings.Core.Contexts
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlite($"Data Source=Data/meetings.db");
-
         }
-
         public PGContext()
         {
             //this.Database.EnsureDeleted();
-            //this.Database.EnsureCreated();
+            this.Database.EnsureCreated();
         }
     }
 }

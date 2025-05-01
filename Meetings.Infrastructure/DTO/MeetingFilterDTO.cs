@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Meetings.Infrastructure.DTO
 {
+    /// <summary>
+    /// Поля для фильтрации
+    /// </summary>
     public class MeetingFilterDTO
     {
         public DateTime? StartDate { get; set; }

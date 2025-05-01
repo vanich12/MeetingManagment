@@ -112,12 +112,12 @@ namespace MeetingManagment
                 DateTime startTime = GetDateTimeValue("Введите время начала встречи:");
                 DateTime endTime = GetDateTimeValue("Введите примерное время окончания встречи:");
                 Console.WriteLine("Введите описание встречи");
-                string description = Console.ReadLine().Trim();
+                string description = Console.ReadLine()?.Trim();
                 Meeting meeting = new Meeting() { StartTime = startTime, EndTime = endTime, Description = description };
                 Console.WriteLine("Установить уведомление о встрече?");
                 Console.WriteLine("1. Да");
                 Console.WriteLine("2. Нет");
-                var choice = Console.ReadLine().Trim();
+                var choice = Console.ReadLine()?.Trim();
 
                 switch (choice)
                 {
@@ -180,7 +180,7 @@ namespace MeetingManagment
             while (currentMeeting == null)
             {
                 Console.Write("Введите ID встречи, которую хотите отредактировать: ");
-                string? inputId = Console.ReadLine().Trim();
+                string? inputId = Console.ReadLine()?.Trim();
 
                 if (int.TryParse(inputId, out meetingId))
                 {
@@ -216,34 +216,44 @@ namespace MeetingManagment
             Console.WriteLine("4. Содержание встречи");
             Console.WriteLine("5. Сохранить");
             Console.WriteLine("6. Отменить");
+            var DTOMeeting = new Meeting()
+            {
+                Id = currentMeeting.Id,
+                StartTime = currentMeeting.StartTime,
+                EndTime = currentMeeting.EndTime,
+                Reminder = currentMeeting.Reminder,
+                Description = currentMeeting.Description
+            };
             try
+
             {
                 while (isOpenForm)
                 {
                     Console.WriteLine("Выберите, что вы хотите изменить:");
-                    string choice = Console.ReadLine().Trim();
+                    string choice = Console.ReadLine()?.Trim();
                     switch (choice)
                     {
                         case "1":
                             var newTime = GetDateTimeValue("Введите новое время НАЧАЛА встречи:");
-                            currentMeeting.StartTime = newTime;
+                            DTOMeeting.StartTime = newTime;
                             break;
                         case "2":
                             var endTime = GetDateTimeValue("Введите новое время ОКОНЧАНИЯ встречи:");
-                            currentMeeting.EndTime = endTime;
+                            DTOMeeting.EndTime = endTime;
                             break;
                         case "3":
                             var remindTime = GetDateTimeValue("Введите новое время для напоминания:");
-                            currentMeeting.Reminder = remindTime;
+                            DTOMeeting.Reminder = remindTime;
                             break;
                         case "4":
                             Console.WriteLine("Введите новое содежрание встречи");
-                            var description = Console.ReadLine().Trim();
-                            currentMeeting.Description = description;
+                            var description = Console.ReadLine()?.Trim();
+                            DTOMeeting.Description = description;
                             break;
                         case "5":
-                            await meetingService.UpdateAsync(meetingId, currentMeeting);
+                            await meetingService.UpdateAsync(meetingId, DTOMeeting);
                             isOpenForm = false;
+                            DTOMeeting = currentMeeting;
                             break;
                         case "6":
                             isOpenForm = false;
@@ -251,7 +261,8 @@ namespace MeetingManagment
                     }
                 }
             }
-            catch (InvalidOperationException ex)
+            catch
+                (InvalidOperationException ex)
             {
                 Console.WriteLine("Неверный формат ввода");
                 logger.Warning($"Ошибка : {ex.Message}");
@@ -278,7 +289,7 @@ namespace MeetingManagment
                     return;
 
                 Console.Write("Введите номер встречи которую хотите удалить: ");
-                int index = int.Parse(Console.ReadLine().Trim());
+                int index = int.Parse(Console.ReadLine()?.Trim());
                 var removeItem = await meetingService.GetByIdAsync(index);
 
                 await meetingService.RemoveAsync(removeItem);
@@ -316,7 +327,7 @@ namespace MeetingManagment
         {
             DateTime targetLocalDate;
             Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
-            string? dateInput = Console.ReadLine().Trim();
+            string? dateInput = Console.ReadLine()?.Trim();
             if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
                     out targetLocalDate))
             {
@@ -365,7 +376,7 @@ namespace MeetingManagment
             // 1. Получаем целевую ЛОКАЛЬНУЮ дату от пользователя
             DateTime targetLocalDate;
             Console.Write($"Введите дату для экспорта в формате - гггг-ММ-дд: ");
-            string? dateInput = Console.ReadLine().Trim();
+            string? dateInput = Console.ReadLine()?.Trim();
 
             if (!DateTime.TryParseExact(dateInput, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None,
                     out targetLocalDate))
@@ -390,7 +401,7 @@ namespace MeetingManagment
         private DateTime GetDateTimeValue(string prompt, bool fileExport = false)
         {
             Console.Write(prompt);
-            if (DateTime.TryParse(Console.ReadLine().Trim(), out DateTime newDateTime))
+            if (DateTime.TryParse(Console.ReadLine()?.Trim(), out DateTime newDateTime))
             {
                 return fileExport ? newDateTime : newDateTime.ToUtcSafe();
             }

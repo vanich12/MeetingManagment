@@ -11,6 +11,9 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["MeetingManagment/MeetingManagment.csproj", "MeetingManagment/"]
+COPY ["Meetings.Application/Meetings.Application.csproj", "Meetings.Application/"]
+COPY ["Meetings.Infrastructure/Meetings.Infrastructure.csproj", "Meetings.Infrastructure/"]
+COPY ["Meetings.Core/Meetings.Core.csproj", "Meetings.Core/"]
 RUN dotnet restore "./MeetingManagment/MeetingManagment.csproj"
 COPY . .
 WORKDIR "/src/MeetingManagment"
@@ -25,4 +28,6 @@ RUN dotnet publish "./MeetingManagment.csproj" -c $BUILD_CONFIGURATION -o /app/p
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+# для копирования файла с БД
+RUN mkdir -p Data
 ENTRYPOINT ["dotnet", "MeetingManagment.dll"]

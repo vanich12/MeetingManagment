@@ -9,6 +9,12 @@ namespace Meetings.Application.Services.Interfaces
 {
     public interface IMeetingValidatorService
     {
+        /// <summary>
+        /// Валидация
+        /// </summary>
+        /// <param name="meeting"></param>
+        /// <param name="isUpdate"></param>
+        /// <returns></returns>
         Task ValidASync(Meeting meeting, bool isUpdate = false);
     }
 }
